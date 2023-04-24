@@ -1,6 +1,7 @@
 package com.filesender.socket.server
 
 import android.content.Context
+import android.os.Build
 import android.os.Environment
 import android.util.Log
 import com.filesender.model.toModel
@@ -49,20 +50,35 @@ class UserManager(
         doWork {
             // отправляем сообщение клиенту
             bufferSender = runCatching {
-                PrintWriter(
-                    BufferedWriter(
-                        OutputStreamWriter(
-                            socket?.getOutputStream(),
-                            StandardCharsets.UTF_8
-                        )
-                    ),
-                    true
-                )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    PrintWriter(
+                        BufferedWriter(
+                            OutputStreamWriter(
+                                socket?.getOutputStream(),
+                                StandardCharsets.UTF_8
+                            )
+                        ),
+                        true
+                    )
+                } else {
+                    PrintWriter(
+                        BufferedWriter(
+                            OutputStreamWriter(
+                                socket?.getOutputStream()
+                            )
+                        ),
+                        true
+                    )
+                }
             }.getOrNull()
 
             // читаем сообщение от клиента
             bufferInput = runCatching {
-                BufferedReader(InputStreamReader(socket?.getInputStream(), StandardCharsets.UTF_8))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    BufferedReader(InputStreamReader(socket?.getInputStream(), StandardCharsets.UTF_8))
+                } else {
+                    BufferedReader(InputStreamReader(socket?.getInputStream()))
+                }
             }.getOrNull()
 
             bufferInput?.let {
