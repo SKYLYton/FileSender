@@ -16,11 +16,16 @@ interface SocketClientWorker {
     fun stopReceivingMessages()
 
     fun isClientStart(): Boolean
-    fun startClient(address: String, name: String)
+    fun startClient(address: String)
     fun stopClient()
 
     fun sendOnline(name: String)
     fun sendOffline()
 
     fun sendResponsePing()
+
+    fun startGettingTime(
+        timeListener: (Int) -> Unit,
+        savedProcessListener: (progress: Int) -> Unit
+    )
 }

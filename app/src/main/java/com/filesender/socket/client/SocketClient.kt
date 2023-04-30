@@ -8,6 +8,7 @@ import com.filesender.socket.model.Command
 import com.filesender.socket.model.CommandType
 import com.filesender.socket.model.Online
 import com.filesender.model.toModel
+import com.filesender.socket.client.file.SocketFileWorker
 import com.filesender.socket.model.File
 import com.filesender.socket.model.Offline
 import com.filesender.socket.model.fromJson
@@ -18,7 +19,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.*
 import java.net.Socket
-import java.nio.charset.StandardCharsets
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -28,14 +28,15 @@ import javax.inject.Singleton
  */
 @Singleton
 class SocketClient @Inject constructor(
-    private val socketWorker: Lazy<SocketClientWorker>
-    ) :
-    BaseSocket() {
+    private val socketWorker: Lazy<SocketClientWorker>,
+    private val socketFileWorker: SocketFileWorker
+) : BaseSocket() {
+    var fileSaved: ((second: Int) -> Unit)? = null
+    var savedProcessListener: ((progress: Int) -> Unit)? = null
 
     private var server: ServerOnlineModel? = null
 
     private var address: String = ""
-    private var name: String = "User"
 
     var messageReceived: ((SocketClientState) -> Unit)? = null
     var onConnected: ((server: ServerOnlineModel) -> Unit)? = null
@@ -66,14 +67,11 @@ class SocketClient @Inject constructor(
 
     fun isStart() = mRun
 
-    fun start(address: String, name: String) {
+    fun start(address: String) {
         if (mRun) {
             return
         }
         this.address = address
-        if (name.isNotEmpty()) {
-            this.name = name
-        }
         runClient()
     }
 
@@ -85,29 +83,16 @@ class SocketClient @Inject constructor(
 
                 // отправляем сообщение клиенту
                 mBufferOut = runCatching {
-                    PrintWriter(
-                        BufferedWriter(
-                            OutputStreamWriter(
-                                socket?.getOutputStream(),
-                                StandardCharsets.UTF_8
-                            )
-                        ),
-                        true
-                    )
+                    PrintWriter(BufferedWriter(OutputStreamWriter(socket?.getOutputStream())), true)
                 }.getOrNull()
 
                 // читаем сообщение от клиента
                 mBufferIn = runCatching {
-                    BufferedReader(
-                        InputStreamReader(
-                            socket?.getInputStream(),
-                            StandardCharsets.UTF_8
-                        )
-                    )
+                    BufferedReader(InputStreamReader(socket?.getInputStream()))
                 }.getOrNull()
 
                 mBufferIn?.let {
-                    socketWorker.get().sendOnline(name)
+                    socketWorker.get().sendOnline("")
                     Log.wtf("TAG", "Юзер подключился")
                     while (mRun) {
                         runCatching {
@@ -145,9 +130,9 @@ class SocketClient @Inject constructor(
         }
     }
 
-    private fun processSocket(input: BufferedReader) {
+    private suspend fun processSocket(input: BufferedReader) {
         val message = kotlin.runCatching { input.readLine() }.onFailure {
-            Log.wtf("TAG", it.message + " опа")
+            Log.wtf("TAG", it.message)
         }.getOrNull()
 
         if (message.isNullOrEmpty()) {
@@ -162,7 +147,7 @@ class SocketClient @Inject constructor(
         }
     }
 
-    private fun hasCommand(message: String?): SocketClientState? {
+    private suspend fun hasCommand(message: String?): SocketClientState? {
         if (message.isNullOrEmpty()) {
             return null
         }
@@ -175,15 +160,19 @@ class SocketClient @Inject constructor(
                 command = message.fromJson<Online>()
                 socketState = SocketClientState.Online(command.toModel)
             }
+
             CommandType.OFFLINE -> {
                 command = message.fromJson<Offline>()
                 server = null
                 socketState = SocketClientState.Offline(command.toModel)
             }
+
             CommandType.FILE -> {
                 command = message.fromJson<File>()
                 socketState = SocketClientState.File(command.toModel)
+                processFile(socketState)
             }
+
             else -> {
                 processReceivedWithoutUi(command)
                 return null
@@ -191,6 +180,20 @@ class SocketClient @Inject constructor(
         }
 
         return socketState
+    }
+
+    private suspend fun processFile(file: SocketClientState.File) {
+        sharedMutex.withLock {
+            if (!socketFileWorker.isStart()) {
+                socketFileWorker.startClient(address, file.file.data, file.file.size)
+            }
+
+            socketFileWorker.startGettingTime({
+                fileSaved?.invoke(it)
+            }) {
+                savedProcessListener?.invoke(it)
+            }
+        }
     }
 
     private fun processReceivedWithoutUi(command: BaseCommand) {
@@ -203,6 +206,7 @@ class SocketClient @Inject constructor(
     fun stop() {
         mRun = false
         doWork {
+            socketFileWorker.stopClient()
             socketWorker.get().sendOffline()
             mBufferOut?.let {
                 it.flush()

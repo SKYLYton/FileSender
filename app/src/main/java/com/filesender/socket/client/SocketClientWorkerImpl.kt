@@ -1,6 +1,8 @@
 package com.filesender.socket.client
 
 import com.filesender.model.ServerOnlineModel
+import com.filesender.socket.client.SocketClient
+import com.filesender.socket.client.SocketClientWorker
 import com.filesender.socket.model.Offline
 import com.google.gson.Gson
 import com.filesender.socket.model.Online
@@ -35,8 +37,8 @@ class SocketClientWorkerImpl constructor(
 
     override fun isClientStart(): Boolean = socket.isStart()
 
-    override fun startClient(address: String, name: String) {
-        socket.start(address, name)
+    override fun startClient(address: String) {
+        socket.start(address)
     }
 
     override fun stopClient() {
@@ -57,5 +59,13 @@ class SocketClientWorkerImpl constructor(
     override fun sendResponsePing() {
         val message = gson.toJson(ResponsePing())
         socket.sendMessage(message)
+    }
+
+    override fun startGettingTime(
+        timeListener: (Int) -> Unit,
+        savedProcessListener: (progress: Int) -> Unit
+    ) {
+        socket.fileSaved = timeListener
+        socket.savedProcessListener = savedProcessListener
     }
 }

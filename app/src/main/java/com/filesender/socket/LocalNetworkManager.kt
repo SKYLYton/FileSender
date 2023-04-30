@@ -3,17 +3,15 @@ package com.filesender.socket
 import android.content.Context
 import android.net.DhcpInfo
 import android.net.wifi.WifiManager
-import android.provider.Settings
-import android.util.Log
-import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.*
+import java.io.BufferedReader
+import java.io.FileNotFoundException
+import java.io.FileReader
+import java.io.IOException
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
-import java.net.Socket
-import java.security.AccessController.getContext
-import java.util.*
+import java.util.Collections
 import javax.inject.Inject
 
 
@@ -29,12 +27,49 @@ class LocalNetworkManager @Inject constructor(
 
     fun fetchHostIp(): String {
         d = wifii.dhcpInfo
-        return intToIp(d.ipAddress)
+        return getUSBThetheredIP() ?: "" //intToIp(d.ipAddress)
     }
 
     fun fetchGatewayIp(): String {
         d = wifii.dhcpInfo
         return intToIp(d.gateway)
+    }
+
+    fun getUSBThetheredIP(): String? {
+        var bufferedReader: BufferedReader? = null
+        var ips: String? = ""
+        try {
+            bufferedReader = BufferedReader(FileReader("/proc/net/arp"))
+            var line: String
+            while (bufferedReader.readLine().also { line = it } != null) {
+                val splitted = line.split(" +".toRegex()).dropLastWhile { it.isEmpty() }
+                    .toTypedArray()
+                if (splitted != null && splitted.size >= 4) {
+                    val ip = splitted[0]
+                    val mac = splitted[3]
+                    if (mac.matches("..:..:..:..:..:..".toRegex())) {
+                        if (mac.matches("00:00:00:00:00:00".toRegex())) {
+                            //Log.d("DEBUG", "Wrong:" + mac + ":" + ip);
+                        } else {
+                            //Log.d("DEBUG", "Correct:" + mac + ":" + ip);
+                            ips = ip
+                            break
+                        }
+                    }
+                }
+            }
+        } catch (e: FileNotFoundException) {
+            e.printStackTrace()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            try {
+                bufferedReader?.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+        return ips
     }
 
     fun fetchAllIps(): List<String> {

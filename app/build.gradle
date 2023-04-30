@@ -98,6 +98,6 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1"
     kapt "androidx.lifecycle:lifecycle-compiler:2.6.1"
 
-    implementation 'com.vkpapps.wifimanager:APManager:1.0.0'
+    //implementation 'com.vkpapps.wifimanager:APManager:1.0.0'
 
 }

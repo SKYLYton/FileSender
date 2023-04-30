@@ -1,15 +1,15 @@
 package com.filesender
 
 import android.content.Intent
-import android.net.ConnectivityManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.filesender.databinding.ActivityMainBinding
+import com.filesender.model.ServerOnlineModel
 import com.filesender.socket.LocalNetworkManager
-import com.filesender.socket.server.SocketServerWorker
+import com.filesender.socket.client.SocketClientWorker
+import com.filesender.state.SocketClientState
 import dagger.hilt.android.AndroidEntryPoint
-import java.lang.reflect.Field
 import javax.inject.Inject
 
 
@@ -19,7 +19,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
 
     @Inject
-    lateinit var socketServerWorker: SocketServerWorker
+    lateinit var socketClientWorker: SocketClientWorker
 
     @Inject
     lateinit var manager: LocalNetworkManager
@@ -34,34 +34,35 @@ class MainActivity : AppCompatActivity() {
             //startServer.isEnabled = isUsbConnected
             //usbModem.isEnabled = isUsbConnected
             usbModem.setOnClickListener { view ->
-                switchOnTethering()
+                openTetheringMode()
             }
 
-            ipServer.text = manager.fetchHostIp()
+            val ip = manager.fetchHostIp()
+            ipServer.text = ip
 
-            socketServerWorker.startReceivingServerMessages( {
-                Toast.makeText(applicationContext, it.toString(), Toast.LENGTH_SHORT).show()
-            }, {
-                Toast.makeText(applicationContext, it.toString(), Toast.LENGTH_SHORT).show()
-
-            }, {
-                Toast.makeText(applicationContext, it.toString(), Toast.LENGTH_SHORT).show()
-            }) { isStarted, ip ->
-                Toast.makeText(applicationContext, isStarted.toString(), Toast.LENGTH_SHORT).show()
-                //ipServer.text = ip
-            }
-
-            socketServerWorker.startGettingTime({
+            socketClientWorker.startGettingTime({
                 time.text = it.toString()
             }) {
                 saveProgress.progress = it
             }
 
+            socketClientWorker.startReceivingServerMessages({
+                if (it is SocketClientState.File) {
+                    Toast.makeText(applicationContext, "Принимаем файл ${it.file.data}", Toast.LENGTH_SHORT).show()
+                }
+            }, {
+                Toast.makeText(applicationContext, "Подключились", Toast.LENGTH_SHORT).show()
+            },{
+                Toast.makeText(applicationContext, "Отключились", Toast.LENGTH_SHORT).show()
+            }) { isStart: Boolean, server: ServerOnlineModel? ->
+
+            }
+
             startServer.setOnClickListener {
-                if (socketServerWorker.isServerStart()) {
-                    socketServerWorker.stopServer()
+                if (socketClientWorker.isClientStart()) {
+                    socketClientWorker.stopClient()
                 } else {
-                    socketServerWorker.startServer("ку")
+                    socketClientWorker.startClient(ip)
                 }
             }
         }
@@ -75,27 +76,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun mobileDataEnable(enabled: Boolean) {
-        try {
-            val conman = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
-            conman
-            val conmanClass = Class.forName(conman.javaClass.name)
-            val iConnectivityManagerField: Field = conmanClass.getDeclaredField("mService")
-            iConnectivityManagerField.isAccessible = true
-            val iConnectivityManager: Any = iConnectivityManagerField.get(conman)
-            val iConnectivityManagerClass = Class.forName(iConnectivityManager.javaClass.name)
-            val setMobileDataEnabledMethod = iConnectivityManagerClass.getDeclaredMethod(
-                "setMobileDataEnabled",
-                java.lang.Boolean.TYPE
-            )
-            setMobileDataEnabledMethod.isAccessible = true
-            setMobileDataEnabledMethod.invoke(iConnectivityManager, enabled)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun switchOnTethering() {
+    private fun openTetheringMode() {
         val tetherSettings = Intent()
         tetherSettings.setClassName(
             "com.android.settings",

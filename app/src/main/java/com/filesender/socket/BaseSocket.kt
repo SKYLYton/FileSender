@@ -2,6 +2,7 @@ package com.filesender.socket
 
 import com.google.gson.Gson
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -35,4 +36,8 @@ abstract class BaseSocket {
                 doOnAsyncBlock.invoke(this)
             }
         }
+
+    companion object {
+        val sharedMutex = Mutex()
+    }
 }

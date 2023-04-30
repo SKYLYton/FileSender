@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.wifi.WifiManager
-import com.vkpapps.apmanager.APManager
 
 
 class HotSpotReceiver : BroadcastReceiver() {
@@ -30,7 +29,7 @@ class HotSpotReceiver : BroadcastReceiver() {
     }
 
     private fun hotSpotOff(context: Context) {
-        APManager.getApManager(context).disableWifiAp()
+        //APManager.getApManager(context).disableWifiAp()
     }
 
 }
