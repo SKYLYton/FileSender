@@ -60,44 +60,44 @@ class SocketFile @Inject constructor(
 
     private fun runClient(nameFile: String, size: Int) {
         running = true
-            runCatching {
-                socket = Socket(address, 5656)
+        runCatching {
+            socket = Socket(address, 5656)
 
-                // отправляем сообщение клиенту
-                mBufferOut = runCatching {
-                    PrintWriter(BufferedWriter(OutputStreamWriter(socket?.getOutputStream())), true)
-                }.getOrNull()
+            // отправляем сообщение клиенту
+            mBufferOut = runCatching {
+                PrintWriter(BufferedWriter(OutputStreamWriter(socket?.getOutputStream())), true)
+            }.getOrNull()
 
-                // читаем сообщение от клиента
-                mBufferIn = runCatching {
-                    BufferedReader(InputStreamReader(socket?.getInputStream()))
-                }.getOrNull()
+            // читаем сообщение от клиента
+            mBufferIn = runCatching {
+                BufferedReader(InputStreamReader(socket?.getInputStream()))
+            }.getOrNull()
 
-                mBufferIn?.let {
-                    socketFileWorker.get().sendReadyReceiveFile()
-                    Log.wtf("TAG", "Юзер подключился")
-                    var isDownloaded = false
-                    while (running) {
-                        runCatching {
-                            isDownloaded = receiveFile(nameFile, size)
-                        }.onFailure {
-                            Log.wtf("TAG", it.message)
-                        }
-                        if (isDownloaded) {
-                            break
-                        }
+            mBufferIn?.let {
+                socketFileWorker.get().sendReadyReceiveFile()
+                Log.wtf("TAG", "Юзер подключился")
+                var isDownloaded = false
+                while (running) {
+                    runCatching {
+                        isDownloaded = receiveFile(nameFile, size)
+                    }.onFailure {
+                        Log.wtf("TAG", it.message)
                     }
-                    unzip(nameFile)
+                    if (isDownloaded) {
+                        break
+                    }
                 }
-            }.onFailure {
-                Log.wtf("TAG", "Юзер не смог подключиться")
-            }.also {
-                runCatching {
-                    socket.takeIf { it != null && it.isConnected }?.close()
-                }
-                Log.wtf("TAG", "Юзер свалил")
+                unzip(nameFile)
             }
-            running = false
+        }.onFailure {
+            Log.wtf("TAG", "Юзер не смог подключиться")
+        }.also {
+            runCatching {
+                socket.takeIf { it != null && it.isConnected }?.close()
+            }
+            Log.wtf("TAG", "Юзер свалил")
+        }
+        running = false
     }
 
     private fun startPingProcess() {
