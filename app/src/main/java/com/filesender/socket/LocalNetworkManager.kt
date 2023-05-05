@@ -89,10 +89,10 @@ class LocalNetworkManager @Inject constructor(
                     val ipString = Formatter.formatIpAddress(ipAddress)
 
                     val prefix = ipString.substring(0, ipString.lastIndexOf(".") + 1)
-                    for (i in 10..10) {
+                    for (i in 0..255) {
                         val testIp = prefix + i.toString()
                         val address = InetAddress.getByName(testIp)
-                        val reachable = address.isReachable(15000)
+                        val reachable = address.isReachable(100)
                         val hostName = address.canonicalHostName
                         if (reachable) {
                             ips.add(hostName)
