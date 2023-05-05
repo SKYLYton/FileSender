@@ -37,11 +37,13 @@ class MainActivity : AppCompatActivity() {
                 openTetheringMode()
             }
 
-            val ip = manager.fetchHostIp()
-            ipServer.text = ip
+            val ip = manager.findAllIpInNetwork{
+                ipServer.text = it.toString()
+            }//manager.fetchHostIp()
+            //ipServer.text = ip
 
             socketClientWorker.startGettingTime({
-                time.text = it.toString()
+                time.text = time.text.toString() + " " + it.toString()
             }) {
                 saveProgress.progress = it
             }
@@ -62,7 +64,7 @@ class MainActivity : AppCompatActivity() {
                 if (socketClientWorker.isClientStart()) {
                     socketClientWorker.stopClient()
                 } else {
-                    socketClientWorker.startClient(ip)
+                    socketClientWorker.startClient("ip")
                 }
             }
         }

@@ -3,6 +3,9 @@ package com.filesender.socket.client.file
 import android.os.Environment
 import android.util.Log
 import com.filesender.socket.BaseSocket
+import com.filesender.socket.model.ReadyReceiveFile
+import com.filesender.socket.model.ResponsePing
+import com.filesender.socket.model.toJson
 import com.filesender.socket.server.DecompressFast
 import dagger.Lazy
 import kotlinx.coroutines.delay
@@ -21,9 +24,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
-class SocketFile @Inject constructor(
-    private val socketFileWorker: Lazy<SocketFileWorker>
+class SocketFile(
 ) : BaseSocket() {
 
     var fileSaved: ((second: Int) -> Unit)? = null
@@ -48,11 +49,9 @@ class SocketFile @Inject constructor(
 
     fun start(address: String, nameFile: String, size: Int) {
         doWork {
-            sharedMutex.withLock {
-                if (!running) {
-                    this@SocketFile.address = address
-                    runClient(nameFile, size)
-                }
+            if (!running) {
+                this@SocketFile.address = address
+                runClient(nameFile, size)
             }
         }
         startPingProcess()
@@ -74,7 +73,7 @@ class SocketFile @Inject constructor(
             }.getOrNull()
 
             mBufferIn?.let {
-                socketFileWorker.get().sendReadyReceiveFile()
+                sendMessage(ReadyReceiveFile(nameFile, size).toJson)
                 Log.wtf("TAG", "Юзер подключился")
                 var isDownloaded = false
                 while (running) {
@@ -87,7 +86,7 @@ class SocketFile @Inject constructor(
                         break
                     }
                 }
-                unzip(nameFile)
+                //unzip(nameFile)
             }
         }.onFailure {
             Log.wtf("TAG", "Юзер не смог подключиться")
@@ -96,8 +95,8 @@ class SocketFile @Inject constructor(
                 socket.takeIf { it != null && it.isConnected }?.close()
             }
             Log.wtf("TAG", "Юзер свалил")
+            stop()
         }
-        running = false
     }
 
     private fun startPingProcess() {
@@ -110,7 +109,7 @@ class SocketFile @Inject constructor(
                 mutex.withLock {
                     if (System.currentTimeMillis() - startTime >= 30000) {
                         Log.wtf("TAG", "Юзер пинганул")
-                        socketFileWorker.get().sendResponsePing()
+                        sendMessage(ResponsePing().toJson)
                     }
                 }
             }
@@ -136,18 +135,22 @@ class SocketFile @Inject constructor(
 
     private fun updateProgress() {
         doWork {
-            var oldProgress = progress
-            fileSaved?.invoke(0)
-            while (running || progress < 100) {
-                delay(200)
-                if (oldProgress < progress) {
-                    savedProcessListener?.invoke(progress.toInt())
-                    oldProgress = progress
+            kotlin.runCatching {
+                var oldProgress = progress
+                fileSaved?.invoke(0)
+                while (running || progress < 100) {
+                    delay(200)
+                    if (oldProgress < progress) {
+                        savedProcessListener?.invoke(progress.toInt())
+                        oldProgress = progress
+                    }
                 }
+                fileSaved?.invoke(
+                    TimeUnit.MILLISECONDS.toSeconds(timeWork).toInt()
+                )
+            }.onFailure {
+                Log.e("TAG", it.message + "")
             }
-            fileSaved?.invoke(
-                TimeUnit.MILLISECONDS.toSeconds(timeWork).toInt()
-            )
         }
     }
 
@@ -165,7 +168,6 @@ class SocketFile @Inject constructor(
             val fos = FileOutputStream(file)
 
             val buffer = ByteArray(32 * 8192)
-            updateProgress()
             var index = 0
 
             val firstData = dos.read(buffer)
@@ -173,6 +175,7 @@ class SocketFile @Inject constructor(
                 return false
             }
             fos.write(buffer, 0, firstData)
+            updateProgress()
             var sum = firstData
             while (dos.read(buffer).also { index = it } != -1) {
                 fos.write(buffer, 0, index)
@@ -224,7 +227,7 @@ class SocketFile @Inject constructor(
             savedProcessListener = null
             mBufferOut = null
             mBufferIn = null
-            fileSaved = null
+            //fileSaved = null
         }
     }
 }

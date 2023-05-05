@@ -8,7 +8,7 @@ import com.filesender.socket.model.ReadyReceiveFile
 /**
  * @author Fedotov Yakov
  */
-class ReadyReceiveFileModel(): BaseCommand("ReadyReceiveFileModel")
+class ReadyReceiveFileModel(): BaseCommand("ready_receive_file")
 
 val ReadyReceiveFile.toModel: ReadyReceiveFileModel
     get() = ReadyReceiveFileModel()

@@ -5,7 +5,10 @@ import com.filesender.socket.GsonManager
 /**
  * @author Fedotov Yakov
  */
-class ReadyReceiveFile: BaseCommand("ready_receive_file")
+class ReadyReceiveFile(
+    val fileName: String,
+    val size: Int
+): BaseCommand("ready_receive_file")
 
 val ReadyReceiveFile.toJson: String
-    get() = GsonManager.gson.toJson(ReadyReceiveFile())
+    get() = GsonManager.gson.toJson(this)

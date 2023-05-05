@@ -40,9 +40,5 @@ object AppModule {
     fun providesSocketServerWorker(socket: SocketServer, gson: Gson): SocketServerWorker =
         SocketServerWorkerImpl(socket, gson)
 
-    @Provides
-    @Singleton
-    fun providesSocketFileWorker(socket: SocketFile): SocketFileWorker =
-        SocketFileWorkerImpl(socket)
 
 }

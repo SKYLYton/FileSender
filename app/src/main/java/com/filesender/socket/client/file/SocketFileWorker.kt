@@ -1,7 +1,7 @@
 package com.filesender.socket.client.file
 
 interface SocketFileWorker {
-    fun sendReadyReceiveFile()
+    fun sendReadyReceiveFile(fileName: String, size: Int)
     fun sendResponsePing()
     fun startClient(address: String, nameFile: String, size: Int)
     fun stopClient()

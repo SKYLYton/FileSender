@@ -7,8 +7,8 @@ import com.filesender.socket.model.toJson
 class SocketFileWorkerImpl(
     private val socket: SocketFile
     ) : SocketFileWorker {
-    override fun sendReadyReceiveFile() {
-        socket.sendMessage(ReadyReceiveFile().toJson)
+    override fun sendReadyReceiveFile(fileName: String, size: Int) {
+        socket.sendMessage(ReadyReceiveFile(fileName, size).toJson)
     }
 
     override fun sendResponsePing() {

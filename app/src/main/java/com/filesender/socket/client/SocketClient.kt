@@ -8,6 +8,7 @@ import com.filesender.socket.model.Command
 import com.filesender.socket.model.CommandType
 import com.filesender.socket.model.Online
 import com.filesender.model.toModel
+import com.filesender.socket.client.file.SocketFile
 import com.filesender.socket.client.file.SocketFileWorker
 import com.filesender.socket.model.File
 import com.filesender.socket.model.Offline
@@ -28,8 +29,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class SocketClient @Inject constructor(
-    private val socketWorker: Lazy<SocketClientWorker>,
-    private val socketFileWorker: SocketFileWorker
+    private val socketWorker: Lazy<SocketClientWorker>
 ) : BaseSocket() {
     var fileSaved: ((second: Int) -> Unit)? = null
     var savedProcessListener: ((progress: Int) -> Unit)? = null
@@ -183,17 +183,25 @@ class SocketClient @Inject constructor(
     }
 
     private suspend fun processFile(file: SocketClientState.File) {
-        sharedMutex.withLock {
-            if (!socketFileWorker.isStart()) {
-                socketFileWorker.startClient(address, file.file.data, file.file.size)
+        SocketFile().apply {
+            start(address, file.file.data, file.file.size)
+            fileSaved = {
+                doWorkInMainThread {
+                    sharedMutex.withLock {
+                        this@SocketClient.fileSaved?.invoke(it)
+                    }
+                }
             }
+            savedProcessListener = {
+                doWorkInMainThread {
+                    sharedMutex.withLock {
+                        this@SocketClient.savedProcessListener?.invoke(it)
+                    }
+                }
 
-            socketFileWorker.startGettingTime({
-                fileSaved?.invoke(it)
-            }) {
-                savedProcessListener?.invoke(it)
             }
         }
+
     }
 
     private fun processReceivedWithoutUi(command: BaseCommand) {
@@ -206,7 +214,7 @@ class SocketClient @Inject constructor(
     fun stop() {
         mRun = false
         doWork {
-            socketFileWorker.stopClient()
+            //socketFileWorker.stopClient()
             socketWorker.get().sendOffline()
             mBufferOut?.let {
                 it.flush()

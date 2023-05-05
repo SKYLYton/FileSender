@@ -1,9 +1,14 @@
 package com.filesender.socket
 
 import android.content.Context
+import android.net.ConnectivityManager
 import android.net.DhcpInfo
 import android.net.wifi.WifiManager
+import android.text.format.Formatter
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.FileNotFoundException
 import java.io.FileReader
@@ -20,8 +25,7 @@ import javax.inject.Inject
  */
 class LocalNetworkManager @Inject constructor(
     @ApplicationContext private val context: Context
-) {
-
+) : BaseSocket() {
     private lateinit var d: DhcpInfo
     private var wifii: WifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
@@ -70,6 +74,38 @@ class LocalNetworkManager @Inject constructor(
             }
         }
         return ips
+    }
+
+    fun findAllIpInNetwork(result: (ips: List<String>) -> Unit) {
+        doWork {
+            val ips = mutableListOf<String>()
+
+            withContext(Dispatchers.IO) {
+
+                try {
+                    val wm = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                    val connectionInfo = wm.connectionInfo
+                    val ipAddress = connectionInfo.ipAddress
+                    val ipString = Formatter.formatIpAddress(ipAddress)
+
+                    val prefix = ipString.substring(0, ipString.lastIndexOf(".") + 1)
+                    for (i in 10..10) {
+                        val testIp = prefix + i.toString()
+                        val address = InetAddress.getByName(testIp)
+                        val reachable = address.isReachable(15000)
+                        val hostName = address.canonicalHostName
+                        if (reachable) {
+                            ips.add(hostName)
+                        }
+                    }
+                } catch (t: Throwable) {
+                }
+            }
+
+            doWorkInMainThread {
+                result(ips)
+            }
+        }
     }
 
     fun fetchAllIps(): List<String> {
